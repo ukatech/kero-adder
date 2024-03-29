@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+	<title>Kero Adder</title>
+	<script src="https://cdn.jsdelivr.net/npm/darkreader@4.9.80/darkreader.min.js"></script>
+	<script>
+		DarkReader.setFetchMethod(window.fetch)
+		DarkReader.auto()
+	</script>
+	<style>
+		.overlay {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background-color: rgba(0, 0, 0, 0.5);
+			z-index: 9999;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="overlay">Open or update ur SSP client then refresh this page so that the page can be communicated with it.</div>
+	<script>
+		/// <reference types="jsstp" />
+		"use strict";
+
+		/** @type {typeof import("jsstp").jsstp} */
+		var jsstp;
+
+		function init_content() {
+			// Remove the overlay
+			var overlay = document.querySelector('.overlay');
+			overlay.parentNode.removeChild(overlay);
+			AutoAddKero = new AutoAddKero_t();
+			reload_button();
+		}
+		//页面加载完成后，检查ghost可用性
+		document.addEventListener('DOMContentLoaded', () =>
+			import("https://cdn.jsdelivr.net/gh/ukatech/jsstp-lib@v3.1.1.3/dist/jsstp.mjs")
+				.then(m => (jsstp = m.jsstp).if_available(init_content)).catch(e => e)
+		);
+	</script>
+	<script>
+		function reload_button() {
+			const list = document.getElementById("ghost_list_content");
+			AutoAddKero.stop();
+			//重新加载列表
+			jsstp.get_fmo_infos().then(async fmo => {
+				//备份当前选项（如果有的话）
+				let selected = list.value;
+				//清空列表
+				list.options.length = 0;
+				if (!fmo.available)
+					throw new Error("get_fmo_infos failed");
+				fmo.forEach((info, uuid) => list.options.add(new Option(info.name, uuid)));
+				//根据备份的选项重新选中（如果还在列表中的话）
+				if (fmo[selected])
+					list.value = selected;
+				else
+					selected = list.value = list.options[0].value;
+				//根据选中的选项初始化内容
+				if (fmo[selected]['kero.surface'])
+					char_num = 2
+				else
+					char_num = 1;
+				document.getElementById("KeroNum").innerText = char_num;
+				surface_num = fmo[selected]['kero.surface'] ?? fmo[selected]['sakura.surface'] ?? 10;
+				document.getElementById("surface_num").value = surface_num;
+				jsstp = jsstp.by_fmo_info(fmo[selected]);
+			}).catch(e => {
+				console.error(e);
+			});
+		}
+	</script>
+	<!-- 一个列表用于显示和选择ghost -->
+	<div id="ghost_select">
+		<p style="display: inline;">Ghost Select:</p>
+		<select id="ghost_list_content" onchange="reload_button()"></select>
+		<!-- reloadボタン -->
+		<button id="ghost_reload_button" onclick="reload_button()">Reload</button>
+	</div>
+
+	<script>
+		var char_num = 1;
+		var surface_num = 10;
+	</script>
+	<p style="display: inline;">Char Number:</p>
+	<div id="KeroNum" style="display: inline;">?</div>
+
+	<script>
+		function surface_num_change() {
+			surface_num = document.getElementById("surface_num").value;
+		}
+	</script>
+	<div>
+		<label for="surface_num">Surface Number:</label>
+		<input type="number" id="surface_num" name="surface_num" value="10" min="0" onchange="surface_num_change()">
+	</div>
+	<br>
+	<script>
+		function addKero(EventId = 'OnKeroAdderClick') {
+			document.querySelector('#KeroNum').innerText = char_num;
+			jsstp.SEND({
+				Event: EventId,
+				Script: `\\p[${char_num}]\\s[${surface_num}]Hi!`,
+				Option: "notranslate"
+			})
+			char_num++;
+		}
+	</script>
+	<button onclick="addKero()">Add Kero</button>
+	<script>
+		var AutoAddKero;
+		class AutoAddKero_t {
+			interval = null;
+			running = false;
+			btn = document.querySelector('#autoAddKeroBtn');
+
+			start() {
+				if (this.running) return;
+				this.running = true;
+				jsstp.OnKeroAdderAutoStart();
+				this.interval = setInterval(() => {
+					addKero('OnKeroAdderAuto');
+				}, 1000);
+				this.btn.innerText = 'Stop Auto Add Kero';
+			}
+
+			stop() {
+				if (!this.running) return;
+				this.running = false;
+				jsstp.OnKeroAdderAutoStop();
+				clearInterval(this.interval);
+				this.interval = null;
+				this.btn.innerText = 'Start Auto Add Kero';
+			}
+
+			toggle() {
+				if (this.running) this.stop();
+				else this.start();
+			}
+		}
+	</script>
+	<button id="autoAddKeroBtn" onclick="AutoAddKero.toggle()">Start Auto Add Kero</button>
+</body>
+
+</html>
